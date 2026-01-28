@@ -48,18 +48,29 @@ class PythonAppLauncher:
     
     def create_gui(self):
         """Create the GUI layout"""
-        # Main container
+        # Main container with notebook (tabs)
         main_container = ttk.Frame(self.root, padding="10")
         main_container.pack(fill=tk.BOTH, expand=True)
         
+        # Create notebook for tabs
+        self.notebook = ttk.Notebook(main_container)
+        self.notebook.pack(fill=tk.BOTH, expand=True)
+        
+        # Tab 1: App Launcher
+        launcher_tab = ttk.Frame(self.notebook)
+        self.notebook.add(launcher_tab, text="App Launcher")
+        
+        launcher_container = ttk.Frame(launcher_tab, padding="10")
+        launcher_container.pack(fill=tk.BOTH, expand=True)
+        
         # Left panel - Controls
-        left_panel = ttk.LabelFrame(main_container, text="App Configuration", padding="15")
+        left_panel = ttk.LabelFrame(launcher_container, text="App Configuration", padding="15")
         left_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
         
         self.create_controls_panel(left_panel)
         
         # Right panel - Apps list and output
-        right_panel = ttk.Frame(main_container)
+        right_panel = ttk.Frame(launcher_container)
         right_panel.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(5, 0))
         
         # Apps list
@@ -74,6 +85,12 @@ class PythonAppLauncher:
         
         self.create_output_console(output_frame)
         
+        # Tab 2: Desktop File Manager
+        desktop_tab = ttk.Frame(self.notebook)
+        self.notebook.add(desktop_tab, text="Desktop Files")
+        
+        self.create_desktop_files_tab(desktop_tab)
+        
         # Status bar
         self.status_var = tk.StringVar(value="Ready")
         status_bar = ttk.Label(
@@ -84,6 +101,146 @@ class PythonAppLauncher:
             padding=5
         )
         status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+    
+    def create_desktop_files_tab(self, parent):
+        """Create the Desktop Files tab for generating .desktop files"""
+        container = ttk.Frame(parent, padding="15")
+        container.pack(fill=tk.BOTH, expand=True)
+        
+        # Title
+        title = ttk.Label(
+            container,
+            text="Generate Ubuntu Desktop Files",
+            font=("Arial", 14, "bold")
+        )
+        title.pack(pady=(0, 20))
+        
+        # Info box
+        info_text = ("Desktop files allow your Python apps to appear in the Ubuntu Applications menu.\n"
+                     "They will be saved to ~/.local/share/applications/ and sync with your system.")
+        info_label = ttk.Label(container, text=info_text, justify=tk.LEFT, foreground="#666666")
+        info_label.pack(pady=(0, 15))
+        
+        # Apps list frame
+        list_frame = ttk.LabelFrame(container, text="Saved Applications", padding="10")
+        list_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
+        
+        # Treeview for desktop file management
+        columns = ("name", "status", "created")
+        self.desktop_tree = ttk.Treeview(list_frame, columns=columns, show="headings", height=12)
+        
+        self.desktop_tree.heading("name", text="Application Name")
+        self.desktop_tree.heading("status", text="Desktop File Status")
+        self.desktop_tree.heading("created", text="Created")
+        
+        self.desktop_tree.column("name", width=150)
+        self.desktop_tree.column("status", width=200)
+        self.desktop_tree.column("created", width=120)
+        
+        scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=self.desktop_tree.yview)
+        self.desktop_tree.configure(yscrollcommand=scrollbar.set)
+        
+        self.desktop_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Buttons frame
+        button_frame = ttk.LabelFrame(container, text="Actions", padding="10")
+        button_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        ttk.Button(
+            button_frame,
+            text="📋 Generate Selected",
+            command=self.generate_selected_desktop_file,
+            width=20
+        ).pack(side=tk.LEFT, padx=(0, 10))
+        
+        ttk.Button(
+            button_frame,
+            text="🚀 Generate & Refresh Apps",
+            command=self.generate_and_refresh_desktop,
+            width=23
+        ).pack(side=tk.LEFT, padx=(0, 10))
+        
+        ttk.Button(
+            button_frame,
+            text="📁 Open Desktop Files Folder",
+            command=self.open_desktop_files_folder,
+            width=22
+        ).pack(side=tk.LEFT, padx=(0, 10))
+        
+        ttk.Button(
+            button_frame,
+            text="🗑 Delete Desktop File",
+            command=self.delete_desktop_file,
+            width=18
+        ).pack(side=tk.LEFT)
+        
+        # Options frame
+        options_frame = ttk.LabelFrame(container, text="Desktop File Options", padding="10")
+        options_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        # Icon selection
+        icon_label_frame = ttk.Frame(options_frame)
+        icon_label_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        ttk.Label(icon_label_frame, text="Icon Name (optional):", width=20).pack(side=tk.LEFT, padx=(0, 5))
+        self.icon_name_var = tk.StringVar()
+        icon_entry = ttk.Entry(icon_label_frame, textvariable=self.icon_name_var, width=30)
+        icon_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+        ttk.Label(icon_label_frame, text="(e.g., python, application-x-python, etc.)", 
+                 foreground="#666666", font=("Arial", 9)).pack(side=tk.LEFT)
+        
+        # Categories selection
+        cat_label_frame = ttk.Frame(options_frame)
+        cat_label_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        ttk.Label(cat_label_frame, text="Categories:", width=20).pack(side=tk.LEFT, padx=(0, 5))
+        self.categories_var = tk.StringVar(value="Development")
+        categories_entry = ttk.Entry(cat_label_frame, textvariable=self.categories_var, width=30)
+        categories_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+        ttk.Label(cat_label_frame, text="(e.g., Development, Utility, Office, etc.)", 
+                 foreground="#666666", font=("Arial", 9)).pack(side=tk.LEFT)
+        
+        # Terminal checkbox
+        self.terminal_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(
+            options_frame,
+            text="Run in terminal",
+            variable=self.terminal_var
+        ).pack(anchor=tk.W)
+        
+        # Console output for desktop operations
+        console_frame = ttk.LabelFrame(container, text="Desktop File Operations Log", padding="10")
+        console_frame.pack(fill=tk.BOTH, expand=True)
+        
+        self.desktop_console = scrolledtext.ScrolledText(
+            console_frame,
+            wrap=tk.WORD,
+            height=8,
+            font=("Monospace", 9),
+            bg='#1e1e1e',
+            fg='#ffffff',
+            insertbackground='white'
+        )
+        self.desktop_console.pack(fill=tk.BOTH, expand=True)
+        
+        # Configure tags for colored output
+        self.desktop_console.tag_config('info', foreground='#569cd6')
+        self.desktop_console.tag_config('success', foreground='#4ec9b0')
+        self.desktop_console.tag_config('error', foreground='#f44747')
+        self.desktop_console.tag_config('warning', foreground='#dcdcaa')
+        
+        # Refresh desktop files list when tab is selected
+        self.notebook.bind('<<NotebookTabChanged>>', self.on_tab_changed)
+        
+        # Initial refresh
+        self.refresh_desktop_files_list()
+    
+    def on_tab_changed(self, event):
+        """Handle tab changes"""
+        selected_tab = self.notebook.index("current")
+        if selected_tab == 1:  # Desktop Files tab
+            self.refresh_desktop_files_list()
     
     def create_controls_panel(self, parent):
         """Create the controls panel"""
@@ -944,6 +1101,230 @@ xterm -title "Running: {app_name}" -geometry 100x30 -e "bash -i '{activation_scr
                 self.log_to_console(f"Loaded {len(self.saved_apps)} saved apps", 'success')
         except:
             self.saved_apps = []
+    
+    # =====================================================
+    # Desktop File Functions
+    # =====================================================
+    
+    def get_desktop_files_dir(self):
+        """Get the desktop files directory (~/.local/share/applications/)"""
+        return os.path.join(os.path.expanduser("~"), ".local", "share", "applications")
+    
+    def create_desktop_file(self, app_config):
+        """Create a .desktop file for the application"""
+        desktop_dir = self.get_desktop_files_dir()
+        os.makedirs(desktop_dir, exist_ok=True)
+        
+        app_name = app_config['name']
+        safe_name = app_name.lower().replace(' ', '_').replace('-', '_')
+        desktop_filename = f"{safe_name}.desktop"
+        desktop_filepath = os.path.join(desktop_dir, desktop_filename)
+        
+        # Get launcher script path
+        if 'launcher_script' in app_config:
+            launcher_script = app_config['launcher_script']
+        else:
+            # Create activation script if it doesn't exist
+            launcher_script = self.create_activation_script(app_config)
+        
+        # Prepare the Exec line
+        exec_command = f"bash -i '{launcher_script}'"
+        
+        # Get icon name from app config or default
+        icon_name = getattr(self, 'icon_name_var', tk.StringVar()).get() or "application-x-python"
+        
+        # Get categories
+        categories = getattr(self, 'categories_var', tk.StringVar()).get() or "Development"
+        
+        # Determine if should run in terminal
+        terminal = getattr(self, 'terminal_var', tk.BooleanVar()).get()
+        
+        # Create desktop file content
+        desktop_content = f"""[Desktop Entry]
+Type=Application
+Name={app_name}
+Comment=Python application - {app_name}
+Exec={exec_command}
+Icon={icon_name}
+Terminal={str(terminal).lower()}
+Categories={categories}
+StartupNotify=true
+Version=1.0
+Path={app_config.get('workdir', os.path.dirname(app_config.get('script', '')))}
+"""
+        
+        # Write desktop file
+        try:
+            with open(desktop_filepath, 'w') as f:
+                f.write(desktop_content)
+            
+            # Make it executable
+            os.chmod(desktop_filepath, 0o755)
+            
+            # Update app config
+            app_config['desktop_file'] = desktop_filepath
+            
+            self.desktop_log(f"✓ Created desktop file: {desktop_filename}", 'success')
+            return desktop_filepath
+        except Exception as e:
+            self.desktop_log(f"✗ Error creating desktop file: {str(e)}", 'error')
+            return None
+    
+    def generate_selected_desktop_file(self):
+        """Generate desktop file for selected app"""
+        if not hasattr(self, 'desktop_tree'):
+            self.desktop_log("Desktop Files tab not initialized", 'error')
+            return
+        
+        selection = self.desktop_tree.selection()
+        if not selection:
+            messagebox.showwarning("Warning", "Please select an app to generate desktop file for!")
+            return
+        
+        item = self.desktop_tree.item(selection[0])
+        app_name = item['values'][0]
+        
+        # Find the app
+        for app in self.saved_apps:
+            if app['name'] == app_name:
+                desktop_path = self.create_desktop_file(app)
+                if desktop_path:
+                    self.save_apps()
+                    self.refresh_desktop_files_list()
+                    self.desktop_log(f"✓ Desktop file ready for: {app_name}", 'success')
+                    self.desktop_log(f"  Location: {desktop_path}", 'info')
+                    messagebox.showinfo("Success", 
+                        f"Desktop file created!\n\n"
+                        f"File: {os.path.basename(desktop_path)}\n"
+                        f"Location: {os.path.dirname(desktop_path)}\n\n"
+                        f"The application should now appear in your Applications menu.\n"
+                        f"You may need to refresh your app menu (press Super key and search).")
+                return
+    
+    def generate_and_refresh_desktop(self):
+        """Generate desktop files for all saved apps and refresh"""
+        if not self.saved_apps:
+            messagebox.showinfo("Info", "No saved applications to generate desktop files for.")
+            return
+        
+        created_count = 0
+        error_count = 0
+        
+        self.desktop_log("Starting desktop file generation for all apps...", 'info')
+        
+        for app in self.saved_apps:
+            desktop_path = self.create_desktop_file(app)
+            if desktop_path:
+                created_count += 1
+            else:
+                error_count += 1
+        
+        self.save_apps()
+        self.refresh_desktop_files_list()
+        
+        # Update desktop database
+        self.update_desktop_database()
+        
+        self.desktop_log(f"✓ Generation complete: {created_count} created, {error_count} failed", 'success')
+        
+        messagebox.showinfo("Success",
+            f"Desktop files generated!\n\n"
+            f"Created: {created_count}\n"
+            f"Failed: {error_count}\n\n"
+            f"Your applications should now appear in the Applications menu.")
+    
+    def update_desktop_database(self):
+        """Update the desktop database"""
+        try:
+            subprocess.run(['update-desktop-database', self.get_desktop_files_dir()], 
+                         capture_output=True, timeout=5)
+            self.desktop_log("✓ Desktop database updated", 'success')
+        except Exception as e:
+            self.desktop_log(f"⚠ Could not update desktop database: {str(e)}", 'warning')
+    
+    def delete_desktop_file(self):
+        """Delete desktop file for selected app"""
+        if not hasattr(self, 'desktop_tree'):
+            self.desktop_log("Desktop Files tab not initialized", 'error')
+            return
+        
+        selection = self.desktop_tree.selection()
+        if not selection:
+            messagebox.showwarning("Warning", "Please select an app!")
+            return
+        
+        item = self.desktop_tree.item(selection[0])
+        app_name = item['values'][0]
+        
+        if messagebox.askyesno("Confirm", f"Delete desktop file for '{app_name}'?"):
+            for app in self.saved_apps:
+                if app['name'] == app_name:
+                    if 'desktop_file' in app:
+                        try:
+                            if os.path.exists(app['desktop_file']):
+                                os.remove(app['desktop_file'])
+                                self.desktop_log(f"✓ Deleted: {os.path.basename(app['desktop_file'])}", 'success')
+                            del app['desktop_file']
+                            self.save_apps()
+                        except Exception as e:
+                            self.desktop_log(f"✗ Error deleting desktop file: {str(e)}", 'error')
+                    break
+            
+            self.refresh_desktop_files_list()
+    
+    def open_desktop_files_folder(self):
+        """Open the desktop files folder"""
+        desktop_dir = self.get_desktop_files_dir()
+        if os.path.exists(desktop_dir):
+            try:
+                subprocess.Popen(['xdg-open', desktop_dir])
+                self.desktop_log(f"Opened desktop files folder: {desktop_dir}", 'info')
+            except Exception as e:
+                self.desktop_log(f"Could not open folder: {str(e)}", 'error')
+        else:
+            self.desktop_log("Desktop files folder not found", 'error')
+    
+    def refresh_desktop_files_list(self):
+        """Refresh the desktop files list"""
+        if not hasattr(self, 'desktop_tree'):
+            return
+        
+        # Clear current items
+        for item in self.desktop_tree.get_children():
+            self.desktop_tree.delete(item)
+        
+        desktop_dir = self.get_desktop_files_dir()
+        
+        # Add apps to treeview with desktop file status
+        for app in self.saved_apps:
+            created = app.get('created')
+            if created:
+                try:
+                    created_time = datetime.fromisoformat(created)
+                    created_str = created_time.strftime("%m/%d %H:%M")
+                except:
+                    created_str = "Unknown"
+            else:
+                created_str = "Unknown"
+            
+            # Check desktop file status
+            if 'desktop_file' in app and os.path.exists(app['desktop_file']):
+                status = "✓ Generated"
+            else:
+                status = "○ Not Generated"
+            
+            self.desktop_tree.insert(
+                '', 'end',
+                values=(app['name'], status, created_str)
+            )
+    
+    def desktop_log(self, message, tag='info'):
+        """Log message to desktop console"""
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        if hasattr(self, 'desktop_console'):
+            self.desktop_console.insert(tk.END, f"[{timestamp}] {message}\n", tag)
+            self.desktop_console.see(tk.END)
+
 
 def main():
     root = tk.Tk()
