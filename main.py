@@ -5,7 +5,7 @@ Uses xterm for terminal execution
 """
 
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk, scrolledtext
+from tkinter import filedialog, messagebox, ttk, scrolledtext, colorchooser
 import subprocess
 import os
 import sys
@@ -14,6 +14,7 @@ import shutil
 from datetime import datetime
 import platform
 import threading
+from icon_generator import IconGenerator
 
 class PythonAppLauncher:
     def __init__(self, root):
@@ -176,19 +177,110 @@ class PythonAppLauncher:
         ).pack(side=tk.LEFT)
         
         # Options frame
-        options_frame = ttk.LabelFrame(container, text="Desktop File Options", padding="10")
+        options_frame = ttk.LabelFrame(container, text="Desktop File & Icon Options", padding="10")
         options_frame.pack(fill=tk.X, pady=(0, 15))
         
-        # Icon selection
-        icon_label_frame = ttk.Frame(options_frame)
-        icon_label_frame.pack(fill=tk.X, pady=(0, 10))
+        # Icon generation type selection
+        icon_type_frame = ttk.Frame(options_frame)
+        icon_type_frame.pack(fill=tk.X, pady=(0, 10))
         
-        ttk.Label(icon_label_frame, text="Icon Name (optional):", width=20).pack(side=tk.LEFT, padx=(0, 5))
-        self.icon_name_var = tk.StringVar()
-        icon_entry = ttk.Entry(icon_label_frame, textvariable=self.icon_name_var, width=30)
-        icon_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
-        ttk.Label(icon_label_frame, text="(e.g., python, application-x-python, etc.)", 
+        ttk.Label(icon_type_frame, text="Icon Type:", width=20).pack(side=tk.LEFT, padx=(0, 5))
+        self.icon_type_var = tk.StringVar(value="generate")
+        ttk.Combobox(icon_type_frame, textvariable=self.icon_type_var, 
+                    values=["generate", "custom", "system"], state="readonly", width=15).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Label(icon_type_frame, text="(Generate: auto, Custom: upload, System: name)", 
                  foreground="#666666", font=("Arial", 9)).pack(side=tk.LEFT)
+        
+        # Generated icon options (shown when generate is selected)
+        gen_icon_frame = ttk.LabelFrame(options_frame, text="Generated Icon Settings", padding="10")
+        gen_icon_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        # Background color
+        bg_color_frame = ttk.Frame(gen_icon_frame)
+        bg_color_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        ttk.Label(bg_color_frame, text="Background Color:", width=20).pack(side=tk.LEFT, padx=(0, 5))
+        self.bg_color_var = tk.StringVar(value="#4285F4")
+        bg_color_entry = ttk.Entry(bg_color_frame, textvariable=self.bg_color_var, width=15)
+        bg_color_entry.pack(side=tk.LEFT, padx=(0, 5))
+        
+        def pick_bg_color():
+            color = colorchooser.askcolor(color=self.bg_color_var.get())
+            if color[1]:
+                self.bg_color_var.set(color[1])
+                update_color_preview()
+        
+        ttk.Button(bg_color_frame, text="Pick", command=pick_bg_color, width=8).pack(side=tk.LEFT, padx=(0, 5))
+        self.bg_color_preview = tk.Canvas(bg_color_frame, width=30, height=30, 
+                                          bg=self.bg_color_var.get(), relief=tk.SUNKEN, bd=1)
+        self.bg_color_preview.pack(side=tk.LEFT)
+        
+        # Text color
+        text_color_frame = ttk.Frame(gen_icon_frame)
+        text_color_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        ttk.Label(text_color_frame, text="Text Color:", width=20).pack(side=tk.LEFT, padx=(0, 5))
+        self.text_color_var = tk.StringVar(value="#FFFFFF")
+        text_color_entry = ttk.Entry(text_color_frame, textvariable=self.text_color_var, width=15)
+        text_color_entry.pack(side=tk.LEFT, padx=(0, 5))
+        
+        def pick_text_color():
+            color = colorchooser.askcolor(color=self.text_color_var.get())
+            if color[1]:
+                self.text_color_var.set(color[1])
+                update_color_preview()
+        
+        ttk.Button(text_color_frame, text="Pick", command=pick_text_color, width=8).pack(side=tk.LEFT, padx=(0, 5))
+        self.text_color_preview = tk.Canvas(text_color_frame, width=30, height=30,
+                                            bg=self.text_color_var.get(), relief=tk.SUNKEN, bd=1)
+        self.text_color_preview.pack(side=tk.LEFT)
+        
+        # Bold text option
+        self.bold_icon_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(gen_icon_frame, text="Bold Text", variable=self.bold_icon_var).pack(anchor=tk.W, pady=(0, 5))
+        
+        # Gradient option
+        self.gradient_icon_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(gen_icon_frame, text="Add Gradient Effect", variable=self.gradient_icon_var).pack(anchor=tk.W)
+        
+        def update_color_preview():
+            try:
+                self.bg_color_preview.config(bg=self.bg_color_var.get())
+                self.text_color_preview.config(bg=self.text_color_var.get())
+            except:
+                pass
+        
+        # Custom icon upload
+        custom_icon_frame = ttk.LabelFrame(options_frame, text="Custom Icon (Optional)", padding="10")
+        custom_icon_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        custom_icon_inner = ttk.Frame(custom_icon_frame)
+        custom_icon_inner.pack(fill=tk.X)
+        
+        self.custom_icon_path_var = tk.StringVar()
+        custom_icon_entry = ttk.Entry(custom_icon_inner, textvariable=self.custom_icon_path_var, width=40)
+        custom_icon_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+        
+        def browse_custom_icon():
+            filepath = filedialog.askopenfilename(
+                title="Select Custom Icon",
+                filetypes=[("Image Files", "*.png *.jpg *.jpeg *.svg *.ico"), ("All Files", "*.*")]
+            )
+            if filepath:
+                self.custom_icon_path_var.set(filepath)
+        
+        ttk.Button(custom_icon_inner, text="Browse", command=browse_custom_icon, width=10).pack(side=tk.LEFT)
+        
+        # System icon name (for system icons)
+        sys_icon_frame = ttk.LabelFrame(options_frame, text="System Icon Name (Optional)", padding="10")
+        sys_icon_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        ttk.Label(sys_icon_frame, text="Icon Name:").pack(anchor=tk.W, pady=(0, 5))
+        self.icon_name_var = tk.StringVar()
+        icon_entry = ttk.Entry(sys_icon_frame, textvariable=self.icon_name_var, width=40)
+        icon_entry.pack(fill=tk.X, pady=(0, 5))
+        ttk.Label(sys_icon_frame, text="(e.g., python, application-x-python, etc.)", 
+                 foreground="#666666", font=("Arial", 9)).pack(anchor=tk.W)
         
         # Categories selection
         cat_label_frame = ttk.Frame(options_frame)
@@ -1111,7 +1203,7 @@ xterm -title "Running: {app_name}" -geometry 100x30 -e "bash -i '{activation_scr
         return os.path.join(os.path.expanduser("~"), ".local", "share", "applications")
     
     def create_desktop_file(self, app_config):
-        """Create a .desktop file for the application"""
+        """Create a .desktop file for the application with icon generation"""
         desktop_dir = self.get_desktop_files_dir()
         os.makedirs(desktop_dir, exist_ok=True)
         
@@ -1130,8 +1222,65 @@ xterm -title "Running: {app_name}" -geometry 100x30 -e "bash -i '{activation_scr
         # Prepare the Exec line
         exec_command = f"bash -i '{launcher_script}'"
         
-        # Get icon name from app config or default
-        icon_name = getattr(self, 'icon_name_var', tk.StringVar()).get() or "application-x-python"
+        # Handle icon generation based on selected type
+        icon_name = "application-x-python"  # Default fallback
+        icon_type = getattr(self, 'icon_type_var', tk.StringVar()).get() or "generate"
+        
+        if icon_type == "generate":
+            # Generate icon with selected colors
+            try:
+                bg_color = getattr(self, 'bg_color_var', tk.StringVar()).get() or "#4285F4"
+                text_color = getattr(self, 'text_color_var', tk.StringVar()).get() or "#FFFFFF"
+                bold = getattr(self, 'bold_icon_var', tk.BooleanVar()).get()
+                with_gradient = getattr(self, 'gradient_icon_var', tk.BooleanVar()).get()
+                
+                icon_gen = IconGenerator(size=256)
+                icon_path = IconGenerator.get_icon_path(app_name)
+                
+                icon_gen.generate_icon(
+                    app_name,
+                    bg_color=bg_color,
+                    text_color=text_color,
+                    bold=bold,
+                    output_path=icon_path,
+                    with_gradient=with_gradient
+                )
+                
+                icon_name = icon_path
+                app_config['icon_path'] = icon_path
+                app_config['icon_type'] = 'generated'
+                app_config['icon_settings'] = {
+                    'bg_color': bg_color,
+                    'text_color': text_color,
+                    'bold': bold,
+                    'gradient': with_gradient
+                }
+                
+                self.desktop_log(f"✓ Generated icon for {app_name}: {icon_path}", 'success')
+            except Exception as e:
+                self.desktop_log(f"⚠ Could not generate icon: {str(e)}", 'warning')
+                icon_name = "application-x-python"
+        
+        elif icon_type == "custom":
+            # Use custom icon
+            custom_icon = getattr(self, 'custom_icon_path_var', tk.StringVar()).get()
+            if custom_icon and os.path.exists(custom_icon):
+                icon_name = custom_icon
+                app_config['icon_path'] = custom_icon
+                app_config['icon_type'] = 'custom'
+                self.desktop_log(f"✓ Using custom icon: {custom_icon}", 'success')
+            else:
+                self.desktop_log("⚠ Custom icon not found, using default", 'warning')
+                icon_name = "application-x-python"
+        
+        else:  # system
+            # Use system icon name
+            sys_icon = getattr(self, 'icon_name_var', tk.StringVar()).get()
+            if sys_icon:
+                icon_name = sys_icon
+                app_config['icon_type'] = 'system'
+                app_config['icon_name'] = sys_icon
+                self.desktop_log(f"✓ Using system icon: {sys_icon}", 'success')
         
         # Get categories
         categories = getattr(self, 'categories_var', tk.StringVar()).get() or "Development"
@@ -1169,6 +1318,7 @@ Path={app_config.get('workdir', os.path.dirname(app_config.get('script', '')))}
         except Exception as e:
             self.desktop_log(f"✗ Error creating desktop file: {str(e)}", 'error')
             return None
+    
     
     def generate_selected_desktop_file(self):
         """Generate desktop file for selected app"""
